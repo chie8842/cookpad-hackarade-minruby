@@ -20,15 +20,25 @@ def evaluate(exp, env)
     # Subtraction.  Please fill in.
     # Use the code above for addition as a reference.
     # (Almost just copy-and-paste.  This is an exercise.)
-    raise(NotImplementedError) # Problem 1
+    evaluate(exp[1], env) - evaluate(exp[2], env)
+
+#    raise(NotImplementedError) # Problem 1
   when "*"
-    raise(NotImplementedError) # Problem 1
+    evaluate(exp[1], env) * evaluate(exp[2], env)
+  when "%"
+    evaluate(exp[1], env) % evaluate(exp[2], env)
+
+  when "/"
+    evaluate(exp[1], env) / evaluate(exp[2], env)
+
+#    raise(NotImplementedError) # Problem 1
   # ... Implement other operators that you need
 
   
 #
 ## Problem 2: Statements and variables
 #
+
 
   when "stmts"
     # Statements: sequential evaluation of one or more expressions.
