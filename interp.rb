@@ -2,6 +2,7 @@ require "minruby"
 
 # An implementation of the evaluator
 def evaluate(exp, env)
+  p(exp)
   # exp: A current node of AST
   # env: An environment (explained later)
 
@@ -15,6 +16,10 @@ def evaluate(exp, env)
     exp[1] # return the immediate value as is
 
   when "+"
+    p("test")
+    p(evaluate(exp[1], env))
+    p(evaluate(exp[2], env))
+
     evaluate(exp[1], env) + evaluate(exp[2], env)
   when "-"
     # Subtraction.  Please fill in.
@@ -25,11 +30,21 @@ def evaluate(exp, env)
 #    raise(NotImplementedError) # Problem 1
   when "*"
     evaluate(exp[1], env) * evaluate(exp[2], env)
+
   when "%"
     evaluate(exp[1], env) % evaluate(exp[2], env)
 
   when "/"
     evaluate(exp[1], env) / evaluate(exp[2], env)
+
+  when ">"
+    evaluate(exp[1], env) > evaluate(exp[2], env)
+
+  when "<"
+    evaluate(exp[1], env) < evaluate(exp[2], env)
+
+  when "=="
+    evaluate(exp[1], env) == evaluate(exp[2], env)
 
 #    raise(NotImplementedError) # Problem 1
   # ... Implement other operators that you need
@@ -41,11 +56,14 @@ def evaluate(exp, env)
 
 
   when "stmts"
+    (1..exp.count-1).each{|num|
+      evaluate(exp[num], env)
+    }
     # Statements: sequential evaluation of one or more expressions.
     #
     # Advice 1: Insert `pp(exp)` and observe the AST first.
     # Advice 2: Apply `evaluate` to each child of this node.
-    raise(NotImplementedError) # Problem 2
+#    raise(NotImplementedError) # Problem 2
 
   # The second argument of this method, `env`, is an "environement" that
   # keeps track of the values stored to variables.
@@ -53,16 +71,23 @@ def evaluate(exp, env)
   # value stored to the corresponded variable.
 
   when "var_ref"
+    name2 = exp[1]
+    env[name2]
+
     # Variable reference: lookup the value corresponded to the variable
     #
     # Advice: env[???]
-    raise(NotImplementedError) # Problem 2
+    # raise(NotImplementedError) # Problem 2
 
   when "var_assign"
+      name = exp[1]
+      value = evaluate(exp[2], env)
+      env[name] = value
+      
     # Variable assignment: store (or overwrite) the value to the environment
     #
     # Advice: env[???] = ???
-    raise(NotImplementedError) # Problem 2
+    # raise(NotImplementedError) # Problem 2
 
 
 #
@@ -79,11 +104,19 @@ def evaluate(exp, env)
     #   else
     #     ???
     #   end
-    raise(NotImplementedError) # Problem 3
+    # raise(NotImplementedError) # Problem 3
+    if evaluate(exp[1], env) == true
+      evaluate(exp[2], env)
+    else
+      evaluate(exp[3], env)
+    end
 
   when "while"
     # Loop.
-    raise(NotImplementedError) # Problem 3
+    #raise(NotImplementedError) # Problem 3
+    while evaluate(exp[1], env) do
+      evaluate(exp[2], env)
+    end
 
 
 #
@@ -103,11 +136,23 @@ def evaluate(exp, env)
         # MinRuby's `p` method is implemented by Ruby's `p` method.
         p(evaluate(exp[2], env))
       # ... Problem 4
+      when "Integer"
+        evaluate(exp[2], env).to_i
+
+      when "fizzbuzz"
+        if evaluate(exp[2], env) % 15 == 0
+          "FizzBuzz"
+        elsif evaluate(exp[2], env) % 3 == 0
+          "Fizz"
+        elsif evaluate(exp[2], env) % 5 == 0
+          "Buzz"
+        else
+          evaluate(exp[2], env)
+        end
       else
         raise("unknown builtin function")
       end
     else
-
 
 #
 ## Problem 5: Function definition
@@ -130,7 +175,20 @@ def evaluate(exp, env)
       # (*1) formal parameter: a variable as found in the function definition.
       # For example, `a`, `b`, and `c` are the formal parameters of
       # `def foo(a, b, c)`.
-      raise(NotImplementedError) # Problem 5
+      if $function_definitions.key?(exp[1])
+        method_info = $function_definitions[exp[1]]
+        if exp[2..-1].size == method_info[2].size
+          env_new = {}
+          for n in 0...method_info[2].size do
+            env_new[method_info[2][n]] = evaluate(exp[n+2], env)
+          end
+          p("-----------")
+          p env_new
+          evaluate(method_info[3], env_new)
+        end
+      end
+        #if method_info[2] == 
+      # raise(NotImplementedError) # Problem 5
     end
 
   when "func_def"
@@ -142,8 +200,10 @@ def evaluate(exp, env)
     # All you need is store them into $function_definitions.
     #
     # Advice: $function_definitions[???] = ???
-    raise(NotImplementedError) # Problem 5
 
+    # raise(NotImplementedError) # Problem 5
+    $function_definitions[exp[1]] = exp
+    p($function_definitions[exp[1]])
 
 #
 ## Problem 6: Arrays and Hashes
@@ -151,16 +211,29 @@ def evaluate(exp, env)
 
   # You don't need advices anymore, do you?
   when "ary_new"
-    raise(NotImplementedError) # Problem 6
+    array = []
+    exp[1..-1].each {|x| array.append(evaluate(x, env))}
+    array
+    # raise(NotImplementedError) # Problem 6
 
   when "ary_ref"
-    raise(NotImplementedError) # Problem 6
+    evaluate(exp[1], env)[evaluate(exp[2], env)]
+    # raise(NotImplementedError) # Problem 6
 
   when "ary_assign"
-    raise(NotImplementedError) # Problem 6
+		evaluate(exp[1], env)[evaluate(exp[2], env)] = evaluate(exp[3], env)
+    # raise(NotImplementedError) # Problem 6
 
   when "hash_new"
-    raise(NotImplementedError) # Problem 6
+    i = 1
+    hash = {}
+    while i < exp[1..-1].size do
+      hash[evaluate(exp[i], env)] = evaluate(exp[i+1], env)
+      i = i + 2
+    end
+    hash
+
+    # raise(NotImplementedError) # Problem 6
 
   else
     p("error")
@@ -175,4 +248,5 @@ env = {}
 
 # `minruby_load()` == `File.read(ARGV.shift)`
 # `minruby_parse(str)` parses a program text given, and returns its AST
+#p(minruby_parse(minruby_load()))
 evaluate(minruby_parse(minruby_load()), env)
