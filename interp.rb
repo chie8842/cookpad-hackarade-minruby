@@ -1,8 +1,9 @@
 require "minruby"
 
 # An implementation of the evaluator
-def evaluate(exp, env)
-  p(exp)
+def evaluate(exp, env, function_definitions)
+  # p(exp)
+  # p env
   # exp: A current node of AST
   # env: An environment (explained later)
 
@@ -16,35 +17,32 @@ def evaluate(exp, env)
     exp[1] # return the immediate value as is
 
   when "+"
-    p("test")
-    p(evaluate(exp[1], env))
-    p(evaluate(exp[2], env))
+    evaluate(exp[1], env, function_definitions) + evaluate(exp[2], env, function_definitions)
 
-    evaluate(exp[1], env) + evaluate(exp[2], env)
   when "-"
     # Subtraction.  Please fill in.
     # Use the code above for addition as a reference.
     # (Almost just copy-and-paste.  This is an exercise.)
-    evaluate(exp[1], env) - evaluate(exp[2], env)
+    evaluate(exp[1], env, function_definitions) - evaluate(exp[2], env, function_definitions)
 
 #    raise(NotImplementedError) # Problem 1
   when "*"
-    evaluate(exp[1], env) * evaluate(exp[2], env)
+    evaluate(exp[1], env, function_definitions) * evaluate(exp[2], env, function_definitions)
 
   when "%"
-    evaluate(exp[1], env) % evaluate(exp[2], env)
+    evaluate(exp[1], env, function_definitions) % evaluate(exp[2], env, function_definitions)
 
   when "/"
-    evaluate(exp[1], env) / evaluate(exp[2], env)
+    evaluate(exp[1], env, function_definitions) / evaluate(exp[2], env, function_definitions)
 
   when ">"
-    evaluate(exp[1], env) > evaluate(exp[2], env)
+    evaluate(exp[1], env, function_definitions) > evaluate(exp[2], env, function_definitions)
 
   when "<"
-    evaluate(exp[1], env) < evaluate(exp[2], env)
+    evaluate(exp[1], env, function_definitions) < evaluate(exp[2], env, function_definitions)
 
   when "=="
-    evaluate(exp[1], env) == evaluate(exp[2], env)
+    evaluate(exp[1], env, function_definitions) == evaluate(exp[2], env, function_definitions)
 
 #    raise(NotImplementedError) # Problem 1
   # ... Implement other operators that you need
@@ -54,11 +52,16 @@ def evaluate(exp, env)
 ## Problem 2: Statements and variables
 #
 
-
   when "stmts"
-    (1..exp.count-1).each{|num|
-      evaluate(exp[num], env)
-    }
+    i = 1
+    while exp[i]
+      x = evaluate(exp[i], env, function_definitions)
+      i = i + 1
+    end
+    x
+#    (1..exp.count-1).each{|num|
+#      evaluate(exp[num], env)
+#    }
     # Statements: sequential evaluation of one or more expressions.
     #
     # Advice 1: Insert `pp(exp)` and observe the AST first.
@@ -71,7 +74,11 @@ def evaluate(exp, env)
   # value stored to the corresponded variable.
 
   when "var_ref"
+    #p exp
+    #p env
     name2 = exp[1]
+    #p "------"
+    #p name2
     env[name2]
 
     # Variable reference: lookup the value corresponded to the variable
@@ -81,14 +88,13 @@ def evaluate(exp, env)
 
   when "var_assign"
       name = exp[1]
-      value = evaluate(exp[2], env)
+      value = evaluate(exp[2], env, function_definitions)
       env[name] = value
-      
+
     # Variable assignment: store (or overwrite) the value to the environment
     #
     # Advice: env[???] = ???
     # raise(NotImplementedError) # Problem 2
-
 
 #
 ## Problem 3: Branchs and loops
@@ -105,17 +111,17 @@ def evaluate(exp, env)
     #     ???
     #   end
     # raise(NotImplementedError) # Problem 3
-    if evaluate(exp[1], env) == true
-      evaluate(exp[2], env)
+    if evaluate(exp[1], env, function_definitions) == true
+      evaluate(exp[2], env, function_definitions)
     else
-      evaluate(exp[3], env)
+      evaluate(exp[3], env, function_definitions)
     end
 
   when "while"
     # Loop.
     #raise(NotImplementedError) # Problem 3
-    while evaluate(exp[1], env) do
-      evaluate(exp[2], env)
+    while evaluate(exp[1], env, function_definitions) do
+      evaluate(exp[2], env, function_definitions)
     end
 
 
@@ -125,30 +131,40 @@ def evaluate(exp, env)
 
   when "func_call"
     # Lookup the function definition by the given function name.
-    func = $function_definitions[exp[1]]
+    func = function_definitions[exp[1]]
 
-    if func.nil?
+    if func == nil
       # We couldn't find a user-defined function definition;
       # it should be a builtin function.
       # Dispatch upon the given function name, and do paticular tasks.
       case exp[1]
       when "p"
         # MinRuby's `p` method is implemented by Ruby's `p` method.
-        p(evaluate(exp[2], env))
+        p(evaluate(exp[2], env, function_definitions))
       # ... Problem 4
       when "Integer"
-        evaluate(exp[2], env).to_i
+        Integer(evaluate(exp[2], env, function_definitions))
 
       when "fizzbuzz"
-        if evaluate(exp[2], env) % 15 == 0
+        if evaluate(exp[2], env, function_definitions) % 15 == 0
           "FizzBuzz"
-        elsif evaluate(exp[2], env) % 3 == 0
+        elsif evaluate(exp[2], env, function_definitions) % 3 == 0
           "Fizz"
-        elsif evaluate(exp[2], env) % 5 == 0
+        elsif evaluate(exp[2], env, function_definitions) % 5 == 0
           "Buzz"
         else
-          evaluate(exp[2], env)
+          evaluate(exp[2], env, function_definitions)
         end
+
+      when "require"
+        require evaluate(exp[2], env, function_definitions)
+
+      when "minruby_parse"
+          minruby_parse(evaluate(exp[2], env, function_definitions))
+
+      when "minruby_load"
+          minruby_load()
+
       else
         raise("unknown builtin function")
       end
@@ -175,19 +191,16 @@ def evaluate(exp, env)
       # (*1) formal parameter: a variable as found in the function definition.
       # For example, `a`, `b`, and `c` are the formal parameters of
       # `def foo(a, b, c)`.
-      if $function_definitions.key?(exp[1])
-        method_info = $function_definitions[exp[1]]
-        if exp[2..-1].size == method_info[2].size
-          env_new = {}
-          for n in 0...method_info[2].size do
-            env_new[method_info[2][n]] = evaluate(exp[n+2], env)
-          end
-          p("-----------")
-          p env_new
-          evaluate(method_info[3], env_new)
-        end
+      #if $function_definitions.key?(exp[1])
+      method_info = function_definitions[exp[1]]
+      env_new = {}
+      i = 0
+      while method_info[2][i]
+        env_new[method_info[2][i]] = evaluate(exp[i+2], env, function_definitions)
+        i = i + 1
       end
-        #if method_info[2] == 
+
+      evaluate(method_info[3], env_new, function_definitions)
       # raise(NotImplementedError) # Problem 5
     end
 
@@ -202,8 +215,7 @@ def evaluate(exp, env)
     # Advice: $function_definitions[???] = ???
 
     # raise(NotImplementedError) # Problem 5
-    $function_definitions[exp[1]] = exp
-    p($function_definitions[exp[1]])
+    function_definitions[exp[1]] = exp
 
 #
 ## Problem 6: Arrays and Hashes
@@ -212,23 +224,30 @@ def evaluate(exp, env)
   # You don't need advices anymore, do you?
   when "ary_new"
     array = []
-    exp[1..-1].each {|x| array.append(evaluate(x, env))}
+    i = 1
+    while exp[i]
+      array[i-1] = evaluate(exp[i], env, function_definitions)
+      i = i + 1
+    end
     array
+
+    #exp[1..-1].each {|x| array.append(evaluate(x, env))}
+    #array
     # raise(NotImplementedError) # Problem 6
 
   when "ary_ref"
-    evaluate(exp[1], env)[evaluate(exp[2], env)]
+    evaluate(exp[1], env, function_definitions)[evaluate(exp[2], env, function_definitions)]
     # raise(NotImplementedError) # Problem 6
 
   when "ary_assign"
-		evaluate(exp[1], env)[evaluate(exp[2], env)] = evaluate(exp[3], env)
+    evaluate(exp[1], env, function_definitions)[evaluate(exp[2], env, function_definitions)] = evaluate(exp[3], env, function_definitions)
     # raise(NotImplementedError) # Problem 6
 
   when "hash_new"
     i = 1
     hash = {}
-    while i < exp[1..-1].size do
-      hash[evaluate(exp[i], env)] = evaluate(exp[i+1], env)
+    while exp[i]
+      hash[evaluate(exp[i], env, function_definitions)] = evaluate(exp[i+1], env, function_definitions)
       i = i + 2
     end
     hash
@@ -243,10 +262,11 @@ def evaluate(exp, env)
 end
 
 
-$function_definitions = {}
+ function_definitions = {}
 env = {}
 
 # `minruby_load()` == `File.read(ARGV.shift)`
 # `minruby_parse(str)` parses a program text given, and returns its AST
-#p(minruby_parse(minruby_load()))
-evaluate(minruby_parse(minruby_load()), env)
+x = minruby_parse(minruby_load())
+# p(x)
+evaluate(x, env, function_definitions)
